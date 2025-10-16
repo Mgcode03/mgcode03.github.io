@@ -4,11 +4,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Three.js WebXR AR Cube</title>
+    <title>WebXR Image Tracking Demo</title>
     <!-- Load Tailwind CSS for styling -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Load Three.js library -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap');
 
@@ -20,13 +18,12 @@
             /* Prevent scrolling */
             height: 100vh;
             width: 100vw;
-            display: flex;
-            justify-content: center;
-            align-items: center;
+            margin: 0;
+            padding: 0;
         }
 
-        /* Style the canvas to take up the full viewport */
-        #ar-canvas {
+        /* Container for the Three.js canvas */
+        #ar-container {
             position: absolute;
             top: 0;
             left: 0;
@@ -42,192 +39,62 @@
             left: 50%;
             transform: translateX(-50%);
             z-index: 100;
+            max-width: 90%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
         }
     </style>
+
+    <!-- Load Three.js modules via import map (using a modern version) -->
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.js",
+                "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.165.0/examples/jsm/"
+            }
+        }
+    </script>
 </head>
 
 <body>
 
-    <!-- Canvas will be initialized by Three.js -->
-    <canvas id="ar-canvas"></canvas>
+    <!-- Main container for the Three.js view -->
+    <div id="ar-container"></div>
 
     <!-- UI Overlay for the AR Button and status messages -->
-    <div id="ui-overlay" class="p-4 bg-white/80 backdrop-blur-sm rounded-xl shadow-2xl">
+    <div id="ui-overlay" class="p-4 bg-white/90 backdrop-blur-sm rounded-xl shadow-2xl border border-gray-100">
+        <p class="text-sm font-semibold text-indigo-600 mb-3 text-center">TARGET IMAGE:</p>
+        <!-- Sample target image for the user to scan -->
+        <img id="target-image"
+            src="https://cdn.jsdelivr.net/gh/hiukim/mind-ar-js@1.2.5/examples/image-tracking/assets/card-example/card.png"
+            alt="Target image to scan"
+            class="w-32 h-32 rounded-lg border-2 border-indigo-300 shadow-md mb-4 object-contain">
+
+        <!-- The ARButton will replace this placeholder button -->
         <button id="ar-button"
-            class="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-full transition duration-150 shadow-lg">
-            Start AR
+            class="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-full transition duration-150 shadow-lg active:scale-95">
+            Initializing WebXR...
         </button>
-        <p id="status-message" class="mt-3 text-center text-sm text-gray-700"></p>
+        <p id="status-message" class="mt-3 text-center text-sm text-gray-700 font-medium w-full"></p>
     </div>
 
-    <script>
-        // Check for WebXR compatibility and initialize the application
-        window.onload = function () {
-            if ('xr' in navigator) {
-                checkWebXRSupport();
-            } else {
-                displayMessage("WebXR not supported in this browser.");
-            }
-        };
+    <script type="module">
+        import * as THREE from 'three';
+        // Import ARButton helper from Three.js examples
+        import { ARButton } from 'three/addons/webxr/ARButton.js';
 
-        let scene, camera, renderer, xrSession, xrReferenceSpace;
-        let cube, cubeContainer;
-        const arButton = document.getElementById('ar-button');
+        // --- Configuration Constants ---
+        const TARGET_IMAGE_URL = "https://cdn.jsdelivr.net/gh/hiukim/mind-ar-js@1.2.5/examples/image-tracking/assets/card-example/card.png";
+        const REAL_WORLD_IMAGE_WIDTH_M = 0.08; // Estimated width of the physical card in meters (8cm)
+
+        const AR_CONTAINER = document.getElementById('ar-container');
         const statusMessage = document.getElementById('status-message');
+        const arButtonElement = document.getElementById('ar-button');
 
-        /**
-         * Checks if the device supports immersive AR and updates the button state.
-         */
-        async function checkWebXRSupport() {
-            try {
-                // Check if 'immersive-ar' session is supported
-                const supported = await navigator.xr.isSessionSupported('immersive-ar');
-                if (supported) {
-                    arButton.disabled = false;
-                    arButton.onclick = startARSession;
-                    displayMessage("Ready for AR. Tap the button!");
-                } else {
-                    displayMessage("AR mode not supported by your device or browser.");
-                    arButton.disabled = true;
-                }
-            } catch (error) {
-                console.error("WebXR check error:", error);
-                displayMessage("Error checking AR support: " + error.message);
-                arButton.disabled = true;
-            }
-        }
-
-        /**
-         * Initializes Three.js and requests the AR session.
-         */
-        async function startARSession() {
-            arButton.disabled = true;
-            arButton.textContent = 'Starting...';
-            displayMessage("Requesting AR session...");
-
-            try {
-                // 1. Initialize Three.js Components
-                initThree();
-
-                // 2. Request the XR Session
-                xrSession = await navigator.xr.requestSession('immersive-ar', {
-                    // Request the 'local-floor' feature for stable placement
-                    requiredFeatures: ['local-floor', 'viewer']
-                });
-
-                // 3. Configure Renderer for XR
-                renderer.xr.setSession(xrSession);
-
-                // 4. Set up Session Event Handlers
-                xrSession.onend = onSessionEnded;
-
-                // 5. Get Reference Space
-                // 'local-floor' attempts to place the origin on the floor near the user.
-                xrReferenceSpace = await xrSession.requestReferenceSpace('local-floor');
-
-                // 6. Set up the Scene Content
-                setupARContent();
-
-                // 7. Start the AR Loop
-                xrSession.requestAnimationFrame(renderLoop);
-
-                arButton.style.display = 'none';
-                displayMessage("AR Active! Look around and find the spinning cube.");
-
-            } catch (error) {
-                console.error("Failed to start AR session:", error);
-                displayMessage("Error: AR session failed to start. " + error.message);
-                arButton.disabled = false;
-                arButton.textContent = 'Start AR';
-            }
-        }
-
-        /**
-         * Sets up the basic Three.js scene, renderer, and camera.
-         */
-        function initThree() {
-            // Scene Setup
-            scene = new THREE.Scene();
-
-            // Renderer Setup
-            renderer = new THREE.WebGLRenderer({
-                antialias: true,
-                alpha: true, // Crucial for AR to allow camera feed to show through
-                canvas: document.getElementById('ar-canvas')
-            });
-            renderer.setPixelRatio(window.devicePixelRatio);
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.outputEncoding = THREE.sRGBEncoding;
-            renderer.xr.enabled = true; // Enable XR for the renderer
-
-            // Camera (The camera in AR is managed by the XR frame)
-            camera = new THREE.PerspectiveCamera();
-        }
-
-        /**
-         * Creates and places the 3D content in the scene.
-         */
-        function setupARContent() {
-            // Container to hold the cube and manage its position relative to the origin
-            cubeContainer = new THREE.Group();
-            scene.add(cubeContainer);
-
-            // Create a simple, spinning cube
-            const geometry = new THREE.BoxGeometry(0.1, 0.1, 0.1); // 10cm cube
-            const material = new THREE.MeshPhongMaterial({ color: 0x4ade80 });
-            cube = new THREE.Mesh(geometry, material);
-
-            // Set the cube's initial position relative to the local-floor origin
-            // 1 meter in front of the origin and slightly above the floor.
-            cube.position.set(0, 0.5, -1);
-            cubeContainer.add(cube);
-
-            // Add a light source so the cube is visible
-            const light = new THREE.HemisphereLight(0xffffff, 0xbbbbff, 1);
-            scene.add(light);
-        }
-
-        /**
-         * The main render loop for the XR session.
-         */
-        function renderLoop(time, frame) {
-            // Request the next frame as soon as possible
-            xrSession.requestAnimationFrame(renderLoop);
-
-            if (!frame) return;
-
-            // Get the pose of the viewer (headset or phone)
-            const pose = frame.getViewerPose(xrReferenceSpace);
-
-            if (pose) {
-                // Update the camera based on the viewer's pose
-                const xrCamera = pose.views[0].camera;
-                if (xrCamera) {
-                    camera.matrix.fromArray(xrCamera.matrix);
-                    camera.projectionMatrix.fromArray(xrCamera.projectionMatrix);
-                    camera.matrixWorldNeedsUpdate = true;
-                }
-
-                // Animate the cube
-                cube.rotation.x = time * 0.001;
-                cube.rotation.y = time * 0.002;
-
-                // Render the scene
-                renderer.render(scene, camera);
-            }
-        }
-
-        /**
-         * Handles the session end event.
-         */
-        function onSessionEnded() {
-            xrSession = null;
-            arButton.style.display = 'block';
-            arButton.disabled = false;
-            arButton.textContent = 'Start AR';
-            displayMessage("AR Session ended. Tap to restart.");
-            // Clean up Three.js components if necessary
-        }
+        let renderer, scene, camera;
+        let referenceSpace;
+        let cube, arContainer;
 
         /**
          * Utility function to display messages on the UI.
@@ -237,13 +104,171 @@
         }
 
         /**
-         * Handle window resizing
+         * Converts a Blob (from fetch) into an ImageBitmap.
          */
-        window.addEventListener('resize', () => {
-            if (renderer) {
-                renderer.setSize(window.innerWidth, window.innerHeight);
+        function createImageBitmap(blob) {
+            return window.createImageBitmap(blob);
+        }
+
+        /**
+         * Initializes Three.js scene, camera, and renderer.
+         */
+        function initScene() {
+            // 1. Scene and Camera Setup
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.01, 20);
+
+            // 2. Renderer Setup
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.xr.enabled = true;
+            AR_CONTAINER.appendChild(renderer.domElement);
+
+            // 3. Lighting
+            const light = new THREE.HemisphereLight(0xffffff, 0xbbbbff, 1);
+            scene.add(light);
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.7);
+            directionalLight.position.set(1, 2, 1);
+            scene.add(directionalLight);
+
+            // 4. AR Content (Cube) Setup
+            // This group holds the 3D object and will be positioned/rotated by the tracking data
+            arContainer = new THREE.Group();
+            arContainer.visible = false;
+            scene.add(arContainer);
+
+            const geometry = new THREE.BoxGeometry(0.05, 0.05, 0.05); // 5cm cube
+            const material = new THREE.MeshStandardMaterial({ color: 0x4ade80, metalness: 0.2, roughness: 0.5 });
+            cube = new THREE.Mesh(geometry, material);
+            cube.position.y = 0.025; // Lift cube half its height above the image plane
+            arContainer.add(cube);
+
+            window.addEventListener('resize', onWindowResize, false);
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        /**
+         * Loads the image, sets up ImageBitmap, and configures WebXR.
+         */
+        async function setupXR() {
+            displayMessage("Loading target image for tracking...");
+
+            let trackedImageBitmap;
+            try {
+                // Fetch the image and create ImageBitmap, which is required by the WebXR API
+                const response = await fetch(TARGET_IMAGE_URL);
+                const blob = await response.blob();
+                trackedImageBitmap = await createImageBitmap(blob);
+
+                displayMessage("Image loaded. Configuring WebXR...");
+            } catch (e) {
+                console.error("Failed to load image or create ImageBitmap:", e);
+                displayMessage(`Error: Could not load target image. WebXR requires CORS-friendly image loading.`);
+                return;
             }
-        });
+
+            // Define the single tracked image for the WebXR session
+            const trackedImages = [{
+                image: trackedImageBitmap,
+                widthInMeters: REAL_WORLD_IMAGE_WIDTH_M,
+            }];
+
+            // Options for AR session with Image Tracking feature
+            const sessionInit = {
+                requiredFeatures: ['local-floor', 'image-tracking'],
+                trackedImages: trackedImages // Pass the image bitmap array
+            };
+
+            // Create the WebXR AR button, which handles feature support and session request
+            const button = ARButton.createButton(renderer, sessionInit);
+
+            // Replace the initial placeholder button with the functional ARButton
+            arButtonElement.replaceWith(button);
+
+            // Listen for session start to get the reference space and set the animation loop
+            renderer.xr.addEventListener('sessionstart', (event) => {
+                displayMessage("AR Session Started. Scan the target image now!");
+
+                // Request the local-floor reference space
+                event.session.requestReferenceSpace('local-floor').then(space => {
+                    referenceSpace = space;
+                });
+
+                // Start the Three.js render loop
+                renderer.setAnimationLoop(render);
+            });
+
+            renderer.xr.addEventListener('sessionend', () => {
+                displayMessage("AR Session Ended. Tap the button to start again.");
+                arContainer.visible = false;
+            });
+
+            // Update status based on ARButton's current text (usually for "NOT SUPPORTED")
+            if (button.textContent.includes("NOT SUPPORTED")) {
+                displayMessage("WebXR Image Tracking is NOT SUPPORTED on this browser/device.");
+            }
+        }
+
+        /**
+         * Main WebXR render loop.
+         */
+        function render(time, frame) {
+            if (!frame || !referenceSpace) {
+                // Render the scene without XR updates if not in an AR session or setup is incomplete
+                renderer.render(scene, camera);
+                return;
+            }
+
+            // 1. Get Image Tracking Results from the current frame
+            // This returns an array of XRImageTrackingResult objects for tracked images
+            const results = frame.getImageTrackingResults();
+
+            if (results.length > 0) {
+                const result = results[0]; // We are only tracking one image (index 0)
+
+                // 2. Get the Pose (position and orientation) of the tracked image space
+                const pose = frame.getPose(result.imageSpace, referenceSpace);
+
+                if (pose) {
+                    const trackingState = result.trackingState;
+
+                    // 3. Apply the pose to the 3D container
+                    arContainer.position.copy(pose.transform.position);
+                    arContainer.rotation.setFromQuaternion(pose.transform.orientation);
+                    arContainer.visible = true;
+
+                    // 4. Cube Animation
+                    cube.rotation.x += 0.01;
+                    cube.rotation.y += 0.02;
+
+                    // 5. Update Status Message
+                    displayMessage(`Target Found! State: ${trackingState}. Spinning cube activated.`);
+
+                } else {
+                    // Pose is null (tracking lost momentarily or image is partially obscured)
+                    arContainer.visible = false;
+                    displayMessage("Target lost or out of view. Please find the image.");
+                }
+            } else {
+                // No images currently tracked in the camera view
+                arContainer.visible = false;
+                displayMessage("Looking for target image...");
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        // --- Initialization ---
+        window.onload = function () {
+            initScene();
+            setupXR();
+        };
     </script>
 
 </body>
