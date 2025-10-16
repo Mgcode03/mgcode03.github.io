@@ -212,59 +212,6 @@
             cursor: not-allowed;
         }
 
-        .modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.8);
-            z-index: 1000;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .modal.active {
-            display: flex;
-        }
-
-        .modal-content {
-            background: white;
-            border-radius: 15px;
-            padding: 40px;
-            max-width: 500px;
-            width: 90%;
-            text-align: center;
-        }
-
-        .modal-content h2 {
-            color: #667eea;
-            margin-bottom: 20px;
-        }
-
-        .link-box {
-            background: #f8f9ff;
-            padding: 15px;
-            border-radius: 8px;
-            border: 2px solid #667eea;
-            margin: 20px 0;
-            word-break: break-all;
-            font-family: monospace;
-            font-size: 14px;
-        }
-
-        .qr-code {
-            margin: 20px 0;
-        }
-
-        .file-name {
-            color: #28a745;
-            font-weight: 600;
-            margin-top: 10px;
-            font-size: 14px;
-        }
-
         #arViewer {
             position: fixed;
             top: 0;
@@ -410,23 +357,8 @@
 
             <div class="button-group">
                 <button class="btn btn-secondary" onclick="resetTransforms()">Reset</button>
-                <button class="btn btn-primary" id="publishBtn" onclick="publishAR()" disabled>🚀 Publish AR
+                <button class="btn btn-primary" id="testBtn" onclick="testARDirect()" disabled>🚀 Test AR
                     Experience</button>
-            </div>
-        </div>
-    </div>
-
-    <div class="modal" id="publishModal">
-        <div class="modal-content">
-            <h2>🎉 AR Experience Published!</h2>
-            <p>Your AR experience is ready. For *real* publishing, this link goes live on a server. For **local
-                testing**
-                use the button below.</p>
-            <div class="link-box" id="arLink"></div>
-            <div class="button-group">
-                <button class="btn btn-primary" onclick="copyLink()">Copy Link</button>
-                <button class="btn btn-primary" onclick="testAR()">Test Now</button>
-                <button class="btn btn-secondary" onclick="closeModal()">Close</button>
             </div>
         </div>
     </div>
@@ -442,9 +374,6 @@
             rotation: { x: 0, y: 0, z: 0 },
             scale: { x: 1, y: 1, z: 1 }
         };
-        // Stores all published data for local testing
-        let publishedExperiences = {};
-        let modelBaseOffset = new THREE.Vector3(); // Store the original offset from center
 
         // Helper to convert Base64 Data URL to Blob
         function dataURLtoBlob(dataurl) {
@@ -484,7 +413,7 @@
             scene.add(directionalLight);
 
             const gridHelper = new THREE.GridHelper(5, 10, 0x667eea, 0x444444);
-            gridHelper.position.y = 0; // The grid represents the target plane
+            gridHelper.position.y = -0.5; // Model rests on the grid
             scene.add(gridHelper);
 
             // Add a simple placeholder cube initially
@@ -516,7 +445,7 @@
                     const preview = document.getElementById('imagePreview');
                     preview.innerHTML = '';
                     preview.appendChild(img);
-                    checkPublishReady();
+                    checkTestReady();
                 };
                 reader.readAsDataURL(file);
             }
@@ -530,7 +459,7 @@
                 reader.onload = function (event) {
                     modelData = event.target.result;
                     loadModelInEditor(modelData);
-                    checkPublishReady();
+                    checkTestReady();
                 };
                 reader.readAsDataURL(file);
             }
@@ -551,24 +480,19 @@
                     }
                     model = gltf.scene;
 
-                    // Calculate center and size to adjust position and scale it for the editor view
+                    // Calculate center and size
                     const box = new THREE.Box3().setFromObject(model);
                     const center = box.getCenter(new THREE.Vector3());
+                    model.position.sub(center);
+
+                    // Scale to fit within a manageable size for the editor (e.g., max 1.5 units)
                     const size = box.getSize(new THREE.Vector3());
                     const maxDim = Math.max(size.x, size.y, size.z);
-                    const scale = 1.5 / maxDim; // Scale to fit within a max of 1.5 units for editor
-
-                    // The offset is the difference between the geometric center and the bottom center of the model
-                    modelBaseOffset.set(0, size.y / 2, 0).multiplyScalar(scale);
-
-                    // Recenter model to its bottom center being at (0, 0, 0)
-                    const actualCenter = new THREE.Vector3(center.x, box.min.y, center.z);
-                    model.position.sub(actualCenter).multiplyScalar(scale);
-
-                    // Apply editor scale
+                    const scale = 1.5 / maxDim;
                     model.scale.set(scale, scale, scale);
+                    model.position.y += size.y * scale / 2; // Center model above the grid
 
-                    // Store base scale for later transforms and AR use (AR scale is 1 unit = target width)
+                    // Store base scale for later transforms
                     model.userData.baseScale = scale;
 
                     scene.add(model);
@@ -600,7 +524,6 @@
                     z: parseFloat(document.getElementById('posZ').value) || 0
                 },
                 rotation: {
-                    // Convert degrees to radians
                     x: (parseFloat(document.getElementById('rotX').value) || 0) * Math.PI / 180,
                     y: (parseFloat(document.getElementById('rotY').value) || 0) * Math.PI / 180,
                     z: (parseFloat(document.getElementById('rotZ').value) || 0) * Math.PI / 180
@@ -616,33 +539,23 @@
         function applyTransforms() {
             if (!model) return;
 
-            // The scale applied to the model in the editor is:
-            // Model.scale = (baseScale * userScale)
-            const editorBaseScale = model.userData.baseScale || 1;
+            const baseScale = model.userData.baseScale || 1.5;
+            const modelBaseHeight = model.userData.modelBaseHeight || 0; // Assuming model is centered around Y=0 in AR
 
-            // Apply the user-defined scale multipliers on top of the editor's base scale
-            model.scale.set(
-                editorBaseScale * currentConfig.scale.x,
-                editorBaseScale * currentConfig.scale.y,
-                editorBaseScale * currentConfig.scale.z
+            model.position.set(
+                currentConfig.position.x,
+                currentConfig.position.y + (model.geometry ? model.geometry.boundingSphere.radius * model.scale.y : 0), // Base position above ground
+                currentConfig.position.z
             );
-
-            // Apply position: (model.position is already set to the base bottom-center)
-            // The user's Y position is an offset from the target plane (y=0)
-            model.position.x = currentConfig.position.x * editorBaseScale;
-            model.position.y = currentConfig.position.y * editorBaseScale + modelBaseOffset.y * (currentConfig.scale.y / (modelBaseOffset.y / editorBaseScale));
-            // Simplified Y position logic (which depends heavily on how gltf is loaded, 
-            // the model's Y is its height from the base, so we add the user's Y offset)
-            model.position.y = currentConfig.position.y * editorBaseScale + (model.userData.initialY || 0);
-            // Let's simplify the Y position for the editor:
-            model.position.y = currentConfig.position.y * editorBaseScale;
-            model.position.z = currentConfig.position.z * editorBaseScale;
-
-            // Apply rotation
             model.rotation.set(
                 currentConfig.rotation.x,
                 currentConfig.rotation.y,
                 currentConfig.rotation.z
+            );
+            model.scale.set(
+                baseScale * currentConfig.scale.x,
+                baseScale * currentConfig.scale.y,
+                baseScale * currentConfig.scale.z
             );
         }
 
@@ -660,95 +573,41 @@
             applyTransforms();
         }
 
-        function checkPublishReady() {
+        function checkTestReady() {
             const ready = targetImageData && modelData;
-            // Change button text and ID to reflect local testing focus
-            const btn = document.getElementById('publishBtn');
-            btn.disabled = !ready;
-            btn.textContent = ready ? '🧪 Test AR Experience' : '🚀 Publish AR Experience';
-            btn.onclick = ready ? testAR : null;
+            document.getElementById('testBtn').disabled = !ready;
         }
 
-        // Function that previously was publishAR, now modified to directly trigger the test modal
-        function triggerTestModal() {
-            updateConfig();
-            const id = 'ar_' + Date.now();
-            // Store the raw transform values, not the scaled ones from the editor
-            publishedExperiences[id] = {
-                targetImage: targetImageData,
-                model: modelData,
-                config: {
-                    position: {
-                        x: parseFloat(document.getElementById('posX').value) || 0,
-                        y: parseFloat(document.getElementById('posY').value) || 0,
-                        z: parseFloat(document.getElementById('posZ').value) || 0
-                    },
-                    rotation: {
-                        x: (parseFloat(document.getElementById('rotX').value) || 0) * Math.PI / 180,
-                        y: (parseFloat(document.getElementById('rotY').value) || 0) * Math.PI / 180,
-                        z: (parseFloat(document.getElementById('rotZ').value) || 0) * Math.PI / 180
-                    },
-                    scale: {
-                        x: parseFloat(document.getElementById('scaleX').value) || 1,
-                        y: parseFloat(document.getElementById('scaleY').value) || 1,
-                        z: parseFloat(document.getElementById('scaleZ').value) || 1
-                    }
-                }
-            };
-
-            const baseUrl = window.location.href.split('?')[0];
-            const arUrl = `${baseUrl}?ar=${id}`;
-
-            document.getElementById('arLink').textContent = arUrl;
-            document.getElementById('publishModal').classList.add('active');
-        }
-
-        function copyLink() {
-            const link = document.getElementById('arLink').textContent;
-            navigator.clipboard.writeText(link).then(() => {
-                alert('Link copied to clipboard! (Note: Local link only works in this session)');
-            });
-        }
-
-        function closeModal() {
-            document.getElementById('publishModal').classList.remove('active');
-        }
-
-        function testAR() {
-            triggerTestModal(); // First, publish the config and open the modal
-            // The modal's 'Test Now' button will call startARViewer()
-        }
-
-        // --- AR VIEWER CORE LOGIC (FIXED) ---
-        async function startARViewer(arId) {
-            const experience = publishedExperiences[arId];
-            if (!experience) {
-                alert('AR experience not found. Please upload files and use the "Test Now" button.');
+        function testARDirect() {
+            if (!targetImageData || !modelData) {
+                alert('Please upload both target image and 3D model first.');
                 return;
             }
+            updateConfig();
+            startARViewer(targetImageData, modelData, currentConfig);
+        }
 
+        // --- AR VIEWER CORE LOGIC ---
+        async function startARViewer(targetImage, modelBase64, config) {
             const viewerDiv = document.getElementById('arViewer');
             viewerDiv.style.display = 'block';
             viewerDiv.innerHTML = `
-    <button class="close-ar" onclick="closeARViewer()">✕ Close</button>
-    <div class="ar-overlay">Point camera at target image on a flat surface.</div>
-    <canvas id="arCanvas"></canvas>
-`;
+                <button class="close-ar" onclick="closeARViewer()">✕ Close</button>
+                <div class="ar-overlay">Point camera at target image on a flat surface.</div>
+                <canvas id="arCanvas"></canvas>
+            `;
 
             const arCanvas = document.getElementById('arCanvas');
-            const { targetImage, model: modelBase64, config } = experience;
-
             const targetBlob = dataURLtoBlob(targetImage);
             const targetBlobUrl = URL.createObjectURL(targetBlob);
 
             try {
                 // Initialize MindAR with the target image's Blob URL
-                // MindAR standard scale: 1 unit = width of the target image in meters
+                // NOTE: This uses MindAR's experimental feature to compile the target in the browser.
+                // It can be slow or fail. A pre-compiled .mind file is recommended for production.
                 arSession = new MindAR.Image.ARThree({
                     container: arCanvas,
                     imageTargetSrc: targetBlobUrl,
-                    uiLoading: "yes",
-                    uiScanning: "yes"
                 });
 
                 const { renderer, scene, camera } = arSession;
@@ -769,34 +628,23 @@
 
                 loader.load(modelBlobUrl, (gltf) => {
                     const arModel = gltf.scene;
+
+                    // Get the MindAR Anchor for the first target (index 0)
                     const anchor = arSession.addAnchor(0);
 
-                    // Recenter the model around (0,0,0) before scaling and applying transforms.
-                    // This is the correct way to handle models that aren't centered by default.
-                    const box = new THREE.Box3().setFromObject(arModel);
-                    const center = box.getCenter(new THREE.Vector3());
-                    const modelBaseHeight = box.min.y;
-
-                    // Move the model so its base is at Y=0 of its local coordinate system
-                    arModel.position.sub(new THREE.Vector3(center.x, modelBaseHeight, center.z));
-
                     // 4. Apply transforms based on user configuration
-                    // MindAR anchor scale is 1 unit for the width of the target image.
+                    const baseScale = 1; // MindAR anchors start at a scale of 1 unit = 1 meter on the target image width
 
                     // Apply the user's scale multipliers
                     arModel.scale.set(
-                        config.scale.x,
-                        config.scale.y,
-                        config.scale.z
+                        baseScale * config.scale.x,
+                        baseScale * config.scale.y,
+                        baseScale * config.scale.z
                     );
 
-                    // Apply rotation
-                    arModel.rotation.set(config.rotation.x, config.rotation.y, config.rotation.z);
-
-                    // Apply position (Y is the model's position *above* the target plane)
-                    // The position is now relative to the anchor's center (X=0, Z=0) and the ground (Y=0)
+                    // Apply position and rotation
                     arModel.position.set(config.position.x, config.position.y, config.position.z);
-
+                    arModel.rotation.set(config.rotation.x, config.rotation.y, config.rotation.z);
 
                     // Add the model to the anchor group
                     anchor.group.add(arModel);
@@ -818,7 +666,7 @@
 
             } catch (error) {
                 console.error('MindAR initialization failed:', error);
-                alert("AR Viewer failed to start. Ensure your device is mobile (for camera access).");
+                alert("AR Viewer failed to start. Ensure your device is mobile (for camera access). This is common when MindAR fails to compile the image target.");
                 closeARViewer();
             } finally {
                 URL.revokeObjectURL(targetBlobUrl); // Clean up
@@ -837,13 +685,6 @@
         // --- Window Event Listeners ---
         window.addEventListener('DOMContentLoaded', function () {
             init3DEditor();
-
-            // Clear the non-functional AR parameter alert
-            const urlParams = new URLSearchParams(window.location.search);
-            if (urlParams.has('ar')) {
-                alert("This AR viewer link is only functional for local testing in a live session. For true sharing, the data needs to be hosted on a server.");
-            }
-            checkPublishReady(); // Initialize button state
         });
 
         window.addEventListener('resize', function () {
