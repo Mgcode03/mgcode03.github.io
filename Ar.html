@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AR Image Tracking Creator</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-three.prod.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        h1 {
+            color: white;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .editor-container {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        .upload-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .upload-box {
+            border: 3px dashed #667eea;
+            border-radius: 10px;
+            padding: 30px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: #f8f9ff;
+        }
+
+        .upload-box:hover {
+            background: #eef0ff;
+            border-color: #764ba2;
+        }
+
+        .upload-box input {
+            display: none;
+        }
+
+        .upload-box h3 {
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+
+        .upload-box p {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .preview-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .preview-box {
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            padding: 15px;
+            background: #fafafa;
+        }
+
+        .preview-box h3 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 18px;
+        }
+
+        .preview-content {
+            width: 100%;
+            height: 300px;
+            background: white;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        .preview-content img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+
+        #editor3d {
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+        }
+
+        .controls-section {
+            background: #f8f9ff;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .control-group {
+            margin-bottom: 20px;
+        }
+
+        .control-group h4 {
+            color: #667eea;
+            margin-bottom: 10px;
+            font-size: 16px;
+        }
+
+        .control-row {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-bottom: 10px;
+        }
+
+        .control-item {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .control-item label {
+            color: #666;
+            font-size: 12px;
+            margin-bottom: 5px;
+            font-weight: 600;
+        }
+
+        .control-item input {
+            padding: 8px;
+            border: 2px solid #e0e0e0;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+
+        .control-item input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+        }
+
+        .btn {
+            padding: 15px 40px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 15px;
+            padding: 40px;
+            max-width: 500px;
+            width: 90%;
+            text-align: center;
+        }
+
+        .modal-content h2 {
+            color: #667eea;
+            margin-bottom: 20px;
+        }
+
+        .link-box {
+            background: #f8f9ff;
+            padding: 15px;
+            border-radius: 8px;
+            border: 2px solid #667eea;
+            margin: 20px 0;
+            word-break: break-all;
+            font-family: monospace;
+            font-size: 14px;
+        }
+
+        .qr-code {
+            margin: 20px 0;
+        }
+
+        .file-name {
+            color: #28a745;
+            font-weight: 600;
+            margin-top: 10px;
+            font-size: 14px;
+        }
+
+        #arViewer {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 2000;
+            display: none;
+            /* MindAR container needs to be hidden initially */
+        }
+
+        .ar-overlay {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 15px 30px;
+            border-radius: 8px;
+            font-size: 14px;
+            z-index: 2001;
+        }
+
+        .close-ar {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(255, 0, 0, 0.8);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            z-index: 2001;
+            font-weight: 600;
+        }
+
+        #arCanvas {
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>🎯 AR Image Tracking Creator</h1>
+
+        <div class="editor-container">
+            <div class="upload-section">
+                <div class="upload-box" onclick="document.getElementById('targetImage').click()">
+                    <h3>📷 Target Image</h3>
+                    <p>Upload the reference image for AR tracking</p>
+                    <p style="font-size: 12px; margin-top: 10px;">Recommended: High contrast, detailed images</p>
+                    <input type="file" id="targetImage" accept="image/*">
+                    <div class="file-name" id="targetFileName"></div>
+                </div>
+
+                <div class="upload-box" onclick="document.getElementById('model3d').click()">
+                    <h3>🎨 3D Model</h3>
+                    <p>Upload your 3D model (.glb or .gltf)</p>
+                    <p style="font-size: 12px; margin-top: 10px;">Supported formats: GLB, GLTF</p>
+                    <input type="file" id="model3d" accept=".glb,.gltf">
+                    <div class="file-name" id="modelFileName"></div>
+                </div>
+            </div>
+
+            <div class="preview-section">
+                <div class="preview-box">
+                    <h3>Target Image Preview</h3>
+                    <div class="preview-content" id="imagePreview">
+                        <p style="color: #999;">No image uploaded</p>
+                    </div>
+                </div>
+
+                <div class="preview-box">
+                    <h3>3D Editor (Use mouse to rotate model)</h3>
+                    <div class="preview-content">
+                        <canvas id="editor3d"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <div class="controls-section">
+                <div class="control-group">
+                    <h4>📍 Position (relative to image center)</h4>
+                    <div class="control-row">
+                        <div class="control-item">
+                            <label>X (Left/Right)</label>
+                            <input type="number" id="posX" value="0" step="0.1">
+                        </div>
+                        <div class="control-item">
+                            <label>Y (Up/Down)</label>
+                            <input type="number" id="posY" value="0" step="0.1">
+                        </div>
+                        <div class="control-item">
+                            <label>Z (Forward/Back)</label>
+                            <input type="number" id="posZ" value="0" step="0.1">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <h4>🔄 Rotation (degrees)</h4>
+                    <div class="control-row">
+                        <div class="control-item">
+                            <label>X (Pitch)</label>
+                            <input type="number" id="rotX" value="0" step="5">
+                        </div>
+                        <div class="control-item">
+                            <label>Y (Yaw)</label>
+                            <input type="number" id="rotY" value="0" step="5">
+                        </div>
+                        <div class="control-item">
+                            <label>Z (Roll)</label>
+                            <input type="number" id="rotZ" value="0" step="5">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <h4>📏 Scale Multiplier</h4>
+                    <div class="control-row">
+                        <div class="control-item">
+                            <label>X</label>
+                            <input type="number" id="scaleX" value="1" step="0.1" min="0.1">
+                        </div>
+                        <div class="control-item">
+                            <label>Y</label>
+                            <input type="number" id="scaleY" value="1" step="0.1" min="0.1">
+                        </div>
+                        <div class="control-item">
+                            <label>Z</label>
+                            <input type="number" id="scaleZ" value="1" step="0.1" min="0.1">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="button-group">
+                <button class="btn btn-secondary" onclick="resetTransforms()">Reset</button>
+                <button class="btn btn-primary" id="publishBtn" onclick="publishAR()" disabled>🚀 Publish AR
+                    Experience</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="publishModal">
+        <div class="modal-content">
+            <h2>🎉 AR Experience Published!</h2>
+            <p>Your AR experience is ready. For *real* publishing, this link goes live on a server. For **local
+                testing**
+                use the button below.</p>
+            <div class="link-box" id="arLink"></div>
+            <div class="button-group">
+                <button class="btn btn-primary" onclick="copyLink()">Copy Link</button>
+                <button class="btn btn-primary" onclick="testAR()">Test Now</button>
+                <button class="btn btn-secondary" onclick="closeModal()">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="arViewer"></div>
+
+    <script>
+        let scene, camera, renderer, model, controls;
+        let targetImageData, modelData;
+        let arSession; // To hold the MindAR object
+        let currentConfig = {
+            position: { x: 0, y: 0, z: 0 },
+            rotation: { x: 0, y: 0, z: 0 },
+            scale: { x: 1, y: 1, z: 1 }
+        };
+        // Stores all published data for local testing
+        let publishedExperiences = {};
+
+        // Helper to convert Base64 Data URL to Blob
+        function dataURLtoBlob(dataurl) {
+            const arr = dataurl.split(',');
+            const mime = arr[0].match(/:(.*?);/)[1];
+            const bstr = atob(arr[1]);
+            let n = bstr.length;
+            const u8arr = new Uint8Array(n);
+            while (n--) {
+                u8arr[n] = bstr.charCodeAt(n);
+            }
+            return new Blob([u8arr], { type: mime });
+        }
+
+        // Initialize 3D Editor
+        function init3DEditor() {
+            const canvas = document.getElementById('editor3d');
+            const container = canvas.parentElement;
+
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(75, container.clientWidth / container.clientHeight, 0.1, 1000);
+            renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            renderer.setClearColor(0x1e3c72, 1);
+
+            // OrbitControls for the editor
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            camera.position.z = 3;
+
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+            scene.add(ambientLight);
+
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            directionalLight.position.set(5, 5, 5);
+            scene.add(directionalLight);
+
+            const gridHelper = new THREE.GridHelper(5, 10, 0x667eea, 0x444444);
+            gridHelper.position.y = -0.5; // Model rests on the grid
+            scene.add(gridHelper);
+
+            // Add a simple placeholder cube initially
+            const geometry = new THREE.BoxGeometry(0.5, 0.5, 0.5);
+            const material = new THREE.MeshPhongMaterial({ color: 0xcccccc });
+            model = new THREE.Mesh(geometry, material);
+            model.userData.baseScale = 1;
+            scene.add(model);
+
+            animate();
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update(); // Required for OrbitControls damping
+            renderer.render(scene, camera);
+        }
+
+        // --- File Upload Handlers ---
+        document.getElementById('targetImage').addEventListener('change', function (e) {
+            const file = e.target.files[0];
+            if (file) {
+                document.getElementById('targetFileName').textContent = file.name;
+                const reader = new FileReader();
+                reader.onload = function (event) {
+                    targetImageData = event.target.result;
+                    const img = document.createElement('img');
+                    img.src = targetImageData;
+                    const preview = document.getElementById('imagePreview');
+                    preview.innerHTML = '';
+                    preview.appendChild(img);
+                    checkPublishReady();
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        document.getElementById('model3d').addEventListener('change', function (e) {
+            const file = e.target.files[0];
+            if (file) {
+                document.getElementById('modelFileName').textContent = file.name;
+                const reader = new FileReader();
+                reader.onload = function (event) {
+                    modelData = event.target.result;
+                    loadModelInEditor(modelData);
+                    checkPublishReady();
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        function loadModelInEditor(data) {
+            const loader = new THREE.GLTFLoader();
+            const blob = dataURLtoBlob(data);
+            const blobUrl = URL.createObjectURL(blob);
+
+            loader.load(
+                blobUrl,
+                function (gltf) {
+                    // Clean up existing model
+                    if (model) {
+                        scene.remove(model);
+                        model.traverse(child => { if (child.geometry) child.geometry.dispose(); });
+                    }
+                    model = gltf.scene;
+
+                    // Calculate center and size
+                    const box = new THREE.Box3().setFromObject(model);
+                    const center = box.getCenter(new THREE.Vector3());
+                    model.position.sub(center);
+
+                    // Scale to fit within a manageable size for the editor (e.g., max 1.5 units)
+                    const size = box.getSize(new THREE.Vector3());
+                    const maxDim = Math.max(size.x, size.y, size.z);
+                    const scale = 1.5 / maxDim;
+                    model.scale.set(scale, scale, scale);
+                    model.position.y += size.y * scale / 2; // Center model above the grid
+
+                    // Store base scale for later transforms
+                    model.userData.baseScale = scale;
+
+                    scene.add(model);
+                    applyTransforms();
+                    URL.revokeObjectURL(blobUrl); // Clean up Blob URL
+                },
+                undefined,
+                function (error) {
+                    console.error('Error loading model:', error);
+                    alert('Error loading 3D model. Please make sure it\'s a valid GLB or GLTF file.');
+                    URL.revokeObjectURL(blobUrl);
+                }
+            );
+        }
+
+        // --- Transform Controls ---
+        ['posX', 'posY', 'posZ', 'rotX', 'rotY', 'rotZ', 'scaleX', 'scaleY', 'scaleZ'].forEach(id => {
+            document.getElementById(id).addEventListener('input', function () {
+                updateConfig();
+                applyTransforms();
+            });
+        });
+
+        function updateConfig() {
+            currentConfig = {
+                position: {
+                    x: parseFloat(document.getElementById('posX').value) || 0,
+                    y: parseFloat(document.getElementById('posY').value) || 0,
+                    z: parseFloat(document.getElementById('posZ').value) || 0
+                },
+                rotation: {
+                    x: (parseFloat(document.getElementById('rotX').value) || 0) * Math.PI / 180,
+                    y: (parseFloat(document.getElementById('rotY').value) || 0) * Math.PI / 180,
+                    z: (parseFloat(document.getElementById('rotZ').value) || 0) * Math.PI / 180
+                },
+                scale: {
+                    x: parseFloat(document.getElementById('scaleX').value) || 1,
+                    y: parseFloat(document.getElementById('scaleY').value) || 1,
+                    z: parseFloat(document.getElementById('scaleZ').value) || 1
+                }
+            };
+        }
+
+        function applyTransforms() {
+            if (!model) return;
+
+            const baseScale = model.userData.baseScale || 1.5;
+            const modelBaseHeight = model.userData.modelBaseHeight || 0; // Assuming model is centered around Y=0 in AR
+
+            model.position.set(
+                currentConfig.position.x,
+                currentConfig.position.y + (model.geometry ? model.geometry.boundingSphere.radius * model.scale.y : 0), // Base position above ground
+                currentConfig.position.z
+            );
+            model.rotation.set(
+                currentConfig.rotation.x,
+                currentConfig.rotation.y,
+                currentConfig.rotation.z
+            );
+            model.scale.set(
+                baseScale * currentConfig.scale.x,
+                baseScale * currentConfig.scale.y,
+                baseScale * currentConfig.scale.z
+            );
+        }
+
+        function resetTransforms() {
+            document.getElementById('posX').value = 0;
+            document.getElementById('posY').value = 0;
+            document.getElementById('posZ').value = 0;
+            document.getElementById('rotX').value = 0;
+            document.getElementById('rotY').value = 0;
+            document.getElementById('rotZ').value = 0;
+            document.getElementById('scaleX').value = 1;
+            document.getElementById('scaleY').value = 1;
+            document.getElementById('scaleZ').value = 1;
+            updateConfig();
+            applyTransforms();
+        }
+
+        function checkPublishReady() {
+            const ready = targetImageData && modelData;
+            document.getElementById('publishBtn').disabled = !ready;
+        }
+
+        function publishAR() {
+            updateConfig();
+            const id = 'ar_' + Date.now();
+            publishedExperiences[id] = {
+                targetImage: targetImageData,
+                model: modelData,
+                config: JSON.parse(JSON.stringify(currentConfig))
+            };
+
+            const baseUrl = window.location.href.split('?')[0];
+            const arUrl = `${baseUrl}?ar=${id}`;
+
+            document.getElementById('arLink').textContent = arUrl;
+            document.getElementById('publishModal').classList.add('active');
+        }
+
+        function copyLink() {
+            const link = document.getElementById('arLink').textContent;
+            navigator.clipboard.writeText(link).then(() => {
+                alert('Link copied to clipboard!');
+            });
+        }
+
+        function closeModal() {
+            document.getElementById('publishModal').classList.remove('active');
+        }
+
+        function testAR() {
+            closeModal();
+            const arId = Object.keys(publishedExperiences)[Object.keys(publishedExperiences).length - 1];
+            startARViewer(arId);
+        }
+
+        // --- AR VIEWER CORE LOGIC (FIXED) ---
+        async function startARViewer(arId) {
+            const experience = publishedExperiences[arId];
+            if (!experience) {
+                alert('AR experience not found. Please upload files and publish first.');
+                return;
+            }
+
+            const viewerDiv = document.getElementById('arViewer');
+            viewerDiv.style.display = 'block';
+            viewerDiv.innerHTML = `
+                <button class="close-ar" onclick="closeARViewer()">✕ Close</button>
+                <div class="ar-overlay">Point camera at target image on a flat surface.</div>
+                <canvas id="arCanvas"></canvas>
+            `;
+
+            const arCanvas = document.getElementById('arCanvas');
+            const { targetImage, model: modelBase64, config } = experience;
+
+            const targetBlob = dataURLtoBlob(targetImage);
+            const targetBlobUrl = URL.createObjectURL(targetBlob);
+
+            try {
+                // Initialize MindAR with the target image's Blob URL
+                // NOTE: This uses MindAR's experimental feature to compile the target in the browser.
+                // It can be slow or fail. A pre-compiled .mind file is recommended for production.
+                arSession = new MindAR.Image.ARThree({
+                    container: arCanvas,
+                    imageTargetSrc: targetBlobUrl,
+                });
+
+                const { renderer, scene, camera } = arSession;
+
+                await arSession.start();
+
+                // 2. Add lighting to the AR scene
+                const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+                scene.add(ambientLight);
+                const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+                directionalLight.position.set(10, 10, 5);
+                scene.add(directionalLight);
+
+                // 3. Load 3D model
+                const loader = new THREE.GLTFLoader();
+                const modelBlob = dataURLtoBlob(modelBase64);
+                const modelBlobUrl = URL.createObjectURL(modelBlob);
+
+                loader.load(modelBlobUrl, (gltf) => {
+                    const arModel = gltf.scene;
+
+                    // Get the MindAR Anchor for the first target (index 0)
+                    const anchor = arSession.addAnchor(0);
+
+                    // 4. Apply transforms based on user configuration
+                    const baseScale = 1; // MindAR anchors start at a scale of 1 unit = 1 meter on the target image width
+
+                    // Apply the user's scale multipliers
+                    arModel.scale.set(
+                        baseScale * config.scale.x,
+                        baseScale * config.scale.y,
+                        baseScale * config.scale.z
+                    );
+
+                    // Apply position and rotation
+                    arModel.position.set(config.position.x, config.position.y, config.position.z);
+                    arModel.rotation.set(config.rotation.x, config.rotation.y, config.rotation.z);
+
+                    // Add the model to the anchor group
+                    anchor.group.add(arModel);
+
+                    // Clean up URL object
+                    URL.revokeObjectURL(modelBlobUrl);
+
+                }, undefined, (error) => {
+                    console.error('Error loading AR model:', error);
+                    alert('Failed to load AR model.');
+                    URL.revokeObjectURL(modelBlobUrl);
+                    closeARViewer();
+                });
+
+                // 5. Start AR render loop
+                renderer.setAnimationLoop(() => {
+                    renderer.render(scene, camera);
+                });
+
+            } catch (error) {
+                console.error('MindAR initialization failed:', error);
+                alert("AR Viewer failed to start. Ensure your device is mobile (for camera access). This is common when MindAR fails to compile the image target.");
+                closeARViewer();
+            } finally {
+                URL.revokeObjectURL(targetBlobUrl); // Clean up
+            }
+        }
+
+        function closeARViewer() {
+            if (arSession) {
+                arSession.stop();
+                arSession = null;
+            }
+            document.getElementById('arViewer').style.display = 'none';
+            document.getElementById('arViewer').innerHTML = '';
+        }
+
+        // --- Window Event Listeners ---
+        window.addEventListener('DOMContentLoaded', function () {
+            init3DEditor();
+
+            // Clear the non-functional AR parameter alert
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.has('ar')) {
+                alert("This AR viewer link is only functional in a server environment where the ID data can be fetched. For local testing, please upload files and use the 'Test Now' button.");
+            }
+        });
+
+        window.addEventListener('resize', function () {
+            const canvas = document.getElementById('editor3d');
+            if (canvas && renderer) {
+                const container = canvas.parentElement;
+                camera.aspect = container.clientWidth / container.clientHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(container.clientWidth, container.clientHeight);
+            }
+        });
+    </script>
+</body>
+
+</html>
