@@ -300,15 +300,18 @@
         // Start AR
         startArBtn.addEventListener('click', () => {
             if (!savedSceneConfig) {
-                alert("Please save the scene first!");
+                updateStatus('Please save the scene first!', 'error');
                 return;
             }
 
             // Create A-Frame scene dynamically
             const sceneEl = document.createElement('a-scene');
+            // Add embedded attribute for better layout on mobile
+            sceneEl.setAttribute('embedded', '');
             sceneEl.setAttribute('mindar-image', `imageTargetSrc: ${mindFileUrl}; autoStart: true; uiLoading: no; uiError: no; uiScanning: no;`);
             sceneEl.setAttribute('color-space', 'sRGB');
-            sceneEl.setAttribute('renderer', 'colorManagement: true, physicallyCorrectLights');
+            // Optimize renderer for mobile performance
+            sceneEl.setAttribute('renderer', 'colorManagement: true; logDepth: false; precision: medium;');
             sceneEl.setAttribute('vr-mode-ui', 'enabled: false');
             sceneEl.setAttribute('device-orientation-permission-ui', 'enabled: false');
             
@@ -373,5 +376,4 @@
     </script>
 </body>
 </html>
-
 
