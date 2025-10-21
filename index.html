@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html>
+
 <head>
     <title>MindAR Image Target Scene Editor</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,7 +9,7 @@
     <!-- A-Frame and MindAR libraries -->
     <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
-    
+
     <!-- Import map for three.js modules -->
     <script type="importmap">
         {
@@ -19,6 +20,7 @@
         }
     </script>
 </head>
+
 <body class="bg-gray-900 text-white font-sans">
 
     <!-- Main Container -->
@@ -27,34 +29,41 @@
         <!-- Editor UI Panel -->
         <div id="editor-panel" class="w-full md:w-96 bg-gray-800 p-4 overflow-y-auto flex-shrink-0">
             <h1 class="text-2xl font-bold mb-4 text-cyan-400">AR Scene Editor</h1>
-            
+
             <!-- File Uploads -->
             <div class="space-y-4 mb-6">
                 <div>
-                    <label for="target-image-input" class="block text-sm font-medium mb-1">1. Upload Target Image (for preview)</label>
-                    <input type="file" id="target-image-input" accept="image/png, image/jpeg" class="block w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-cyan-500 file:text-white hover:file:bg-cyan-600 transition-colors cursor-pointer"/>
+                    <label for="target-image-input" class="block text-sm font-medium mb-1">1. Upload Target Image (for
+                        preview)</label>
+                    <input type="file" id="target-image-input" accept="image/png, image/jpeg"
+                        class="block w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-cyan-500 file:text-white hover:file:bg-cyan-600 transition-colors cursor-pointer" />
                 </div>
                 <div>
                     <label for="mind-file-input" class="block text-sm font-medium mb-1">2. Upload .mind File</label>
-                    <input type="file" id="mind-file-input" accept=".mind" class="block w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-cyan-500 file:text-white hover:file:bg-cyan-600 transition-colors cursor-pointer"/>
+                    <input type="file" id="mind-file-input" accept=".mind"
+                        class="block w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-cyan-500 file:text-white hover:file:bg-cyan-600 transition-colors cursor-pointer" />
                 </div>
                 <div>
                     <label for="model-input" class="block text-sm font-medium mb-1">3. Upload 3D Model (.glb)</label>
-                    <input type="file" id="model-input" accept=".glb" class="block w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-cyan-500 file:text-white hover:file:bg-cyan-600 transition-colors cursor-pointer"/>
+                    <input type="file" id="model-input" accept=".glb"
+                        class="block w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-cyan-500 file:text-white hover:file:bg-cyan-600 transition-colors cursor-pointer" />
                 </div>
             </div>
 
             <!-- Transformation Controls -->
             <div id="controls" class="space-y-4 hidden">
                 <h2 class="text-lg font-semibold border-b border-gray-600 pb-2">Transform Controls</h2>
-                
+
                 <!-- Position -->
                 <div class="control-group">
                     <h3 class="font-medium mb-1">Position</h3>
                     <div class="grid grid-cols-2 gap-2 items-center">
-                        <label for="pos-x">X:</label><input type="range" id="pos-x" min="-2" max="2" step="0.01" value="0" class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer">
-                        <label for="pos-y">Y:</label><input type="range" id="pos-y" min="-2" max="2" step="0.01" value="0" class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer">
-                        <label for="pos-z">Z:</label><input type="range" id="pos-z" min="-2" max="2" step="0.01" value="0" class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer">
+                        <label for="pos-x">X:</label><input type="range" id="pos-x" min="-2" max="2" step="0.01"
+                            value="0" class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer">
+                        <label for="pos-y">Y:</label><input type="range" id="pos-y" min="-2" max="2" step="0.01"
+                            value="0" class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer">
+                        <label for="pos-z">Z:</label><input type="range" id="pos-z" min="-2" max="2" step="0.01"
+                            value="0" class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer">
                     </div>
                 </div>
 
@@ -62,33 +71,44 @@
                 <div class="control-group">
                     <h3 class="font-medium mb-1">Rotation</h3>
                     <div class="grid grid-cols-2 gap-2 items-center">
-                        <label for="rot-x">X:</label><input type="range" id="rot-x" min="0" max="360" step="1" value="0" class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer">
-                        <label for="rot-y">Y:</label><input type="range" id="rot-y" min="0" max="360" step="1" value="0" class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer">
-                        <label for="rot-z">Z:</label><input type="range" id="rot-z" min="0" max="360" step="1" value="0" class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer">
+                        <label for="rot-x">X:</label><input type="range" id="rot-x" min="0" max="360" step="1" value="0"
+                            class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer">
+                        <label for="rot-y">Y:</label><input type="range" id="rot-y" min="0" max="360" step="1" value="0"
+                            class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer">
+                        <label for="rot-z">Z:</label><input type="range" id="rot-z" min="0" max="360" step="1" value="0"
+                            class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer">
                     </div>
                 </div>
 
                 <!-- Scale -->
                 <div class="control-group">
                     <h3 class="font-medium mb-1">Scale</h3>
-                     <div class="grid grid-cols-2 gap-2 items-center">
-                        <label for="scale">All Axes:</label><input type="range" id="scale" min="0.01" max="3" step="0.01" value="1" class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer">
+                    <div class="grid grid-cols-2 gap-2 items-center">
+                        <label for="scale">All Axes:</label><input type="range" id="scale" min="0.01" max="3"
+                            step="0.01" value="1"
+                            class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer">
                     </div>
                 </div>
-                 <button id="reset-btn" class="w-full bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded-md transition-colors">Reset Transforms</button>
+                <button id="reset-btn"
+                    class="w-full bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded-md transition-colors">Reset
+                    Transforms</button>
             </div>
 
             <!-- Action Buttons -->
             <div class="mt-8">
-                 <button id="save-scene-btn" disabled class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-4 rounded-md transition-colors disabled:bg-gray-500 disabled:cursor-not-allowed">Save Scene</button>
-                 <button id="start-ar-btn" disabled class="w-full mt-2 bg-green-600 hover:bg-green-500 text-white font-bold py-2 px-4 rounded-md transition-colors disabled:bg-gray-500 disabled:cursor-not-allowed">Start AR</button>
+                <button id="save-scene-btn" disabled
+                    class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-4 rounded-md transition-colors disabled:bg-gray-500 disabled:cursor-not-allowed">Save
+                    Scene</button>
+                <button id="start-ar-btn" disabled
+                    class="w-full mt-2 bg-green-600 hover:bg-green-500 text-white font-bold py-2 px-4 rounded-md transition-colors disabled:bg-gray-500 disabled:cursor-not-allowed">Start
+                    AR</button>
             </div>
-             <p id="status-message" class="text-center text-yellow-400 mt-4 text-sm"></p>
+            <p id="status-message" class="text-center text-yellow-400 mt-4 text-sm"></p>
         </div>
 
         <!-- 3D Editor Canvas -->
         <div id="editor-canvas-container" class="flex-grow bg-gray-900 relative h-96 md:h-auto">
-             <div id="editor-placeholder" class="absolute inset-0 flex items-center justify-center text-gray-500">
+            <div id="editor-placeholder" class="absolute inset-0 flex items-center justify-center text-gray-500">
                 <p>Upload files to begin editing</p>
             </div>
         </div>
@@ -97,7 +117,9 @@
 
     <!-- AR View container (initially hidden) -->
     <div id="ar-container" class="w-screen h-screen hidden fixed top-0 left-0 z-50"></div>
-    <button id="exit-ar-btn" class="hidden fixed bottom-5 left-1/2 -translate-x-1/2 z-[10000] bg-red-600 hover:bg-red-500 text-white font-bold py-3 px-6 rounded-full shadow-lg transition-colors">Exit AR</button>
+    <button id="exit-ar-btn"
+        class="hidden fixed bottom-5 left-1/2 -translate-x-1/2 z-[10000] bg-red-600 hover:bg-red-500 text-white font-bold py-3 px-6 rounded-full shadow-lg transition-colors">Exit
+        AR</button>
 
     <script type="module">
         // Import THREE and modules
@@ -124,10 +146,10 @@
         // three.js Editor variables
         let scene, camera, renderer, model, targetPlane, controls;
         let animationFrameId;
-        
+
         // Data URLs
         let targetImageUrl, mindFileUrl, modelUrl;
-        
+
         // Saved Scene configuration
         let savedSceneConfig = null;
 
@@ -147,7 +169,7 @@
             renderer.setPixelRatio(window.devicePixelRatio);
             editorCanvasContainer.appendChild(renderer.domElement);
             editorPlaceholder.style.display = 'none';
-            
+
             // Lighting
             const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
             scene.add(ambientLight);
@@ -162,13 +184,13 @@
             // Start animation loop
             animateEditor();
         };
-        
+
         const animateEditor = () => {
             animationFrameId = requestAnimationFrame(animateEditor);
             controls.update();
             renderer.render(scene, camera);
         };
-        
+
         // Handle window resize
         window.addEventListener('resize', () => {
             if (renderer) {
@@ -179,14 +201,14 @@
                 renderer.setSize(width, height);
             }
         });
-        
+
         // Load target image into editor
         targetImageInput.addEventListener('change', (event) => {
             const file = event.target.files[0];
             if (!file) return;
 
             targetImageUrl = URL.createObjectURL(file);
-            
+
             if (!scene) initEditor();
 
             // Remove old plane if it exists
@@ -214,28 +236,28 @@
         modelInput.addEventListener('change', (event) => {
             const file = event.target.files[0];
             if (!file) return;
-            
+
             modelUrl = URL.createObjectURL(file);
 
             if (!scene) initEditor();
-            
+
             const loader = new GLTFLoader();
             loader.load(modelUrl, (gltf) => {
                 // Remove old model
                 if (model) scene.remove(model);
-                
+
                 model = gltf.scene;
-                
+
                 // Center and scale model
                 const box = new THREE.Box3().setFromObject(model);
                 const center = box.getCenter(new THREE.Vector3());
                 const size = box.getSize(new THREE.Vector3());
                 const maxDim = Math.max(size.x, size.y, size.z);
                 const scale = 1.0 / maxDim;
-                
+
                 model.position.sub(center.multiplyScalar(scale));
                 model.scale.set(scale, scale, scale);
-                
+
                 scene.add(model);
                 controlsDiv.style.display = 'block';
                 resetTransforms();
@@ -245,7 +267,7 @@
             });
             updateButtonStates();
         });
-        
+
         // Transformation Controls Logic
         const transformInputs = ['pos-x', 'pos-y', 'pos-z', 'rot-x', 'rot-y', 'rot-z', 'scale'];
         transformInputs.forEach(id => {
@@ -274,15 +296,15 @@
 
         // Reset Transforms
         const resetTransforms = () => {
-             document.getElementById('pos-x').value = 0;
-             document.getElementById('pos-y').value = 0;
-             document.getElementById('pos-z').value = 0;
-             document.getElementById('rot-x').value = 0;
-             document.getElementById('rot-y').value = 0;
-             document.getElementById('rot-z').value = 0;
-             document.getElementById('scale').value = 1;
-             // Trigger input event to apply changes
-             transformInputs.forEach(id => document.getElementById(id).dispatchEvent(new Event('input')));
+            document.getElementById('pos-x').value = 0;
+            document.getElementById('pos-y').value = 0;
+            document.getElementById('pos-z').value = 0;
+            document.getElementById('rot-x').value = 0;
+            document.getElementById('rot-y').value = 0;
+            document.getElementById('rot-z').value = 0;
+            document.getElementById('scale').value = 1;
+            // Trigger input event to apply changes
+            transformInputs.forEach(id => document.getElementById(id).dispatchEvent(new Event('input')));
         }
         resetBtn.addEventListener('click', resetTransforms);
 
@@ -314,11 +336,11 @@
             sceneEl.setAttribute('renderer', 'colorManagement: true; logDepth: false; precision: medium;');
             sceneEl.setAttribute('vr-mode-ui', 'enabled: false');
             sceneEl.setAttribute('device-orientation-permission-ui', 'enabled: false');
-            
+
             const cameraEl = document.createElement('a-camera');
             cameraEl.setAttribute('position', '0 0 0');
             cameraEl.setAttribute('look-controls', 'enabled: false');
-            
+
             const targetEntity = document.createElement('a-entity');
             targetEntity.setAttribute('mindar-image-target', 'targetIndex: 0');
 
@@ -332,7 +354,7 @@
             targetEntity.appendChild(modelEntity);
             sceneEl.appendChild(cameraEl);
             sceneEl.appendChild(targetEntity);
-            
+
             arContainer.innerHTML = ''; // Clear previous scene
             arContainer.appendChild(sceneEl);
 
@@ -350,30 +372,30 @@
             // Stop MindAR and clean up
             const sceneEl = arContainer.querySelector('a-scene');
             if (sceneEl && sceneEl.systems['mindar-image-system']) {
-                 sceneEl.systems['mindar-image-system'].stop();
+                sceneEl.systems['mindar-image-system'].stop();
             }
             arContainer.innerHTML = '';
         });
-        
+
         // Update button states based on file uploads
         const updateButtonStates = () => {
             const allFilesReady = targetImageUrl && mindFileUrl && modelUrl;
             saveSceneBtn.disabled = !allFilesReady;
-             if(allFilesReady && !savedSceneConfig) {
+            if (allFilesReady && !savedSceneConfig) {
                 updateStatus('All files loaded. Please position your model and save.', 'info');
-             }
+            }
         };
 
         // Update status message
         const updateStatus = (message, type = 'info') => {
-             statusMessage.textContent = message;
-             statusMessage.classList.remove('text-yellow-400', 'text-green-400', 'text-red-400');
-             if (type === 'success') statusMessage.classList.add('text-green-400');
-             else if (type === 'error') statusMessage.classList.add('text-red-400');
-             else statusMessage.classList.add('text-yellow-400'); // Default/warning
+            statusMessage.textContent = message;
+            statusMessage.classList.remove('text-yellow-400', 'text-green-400', 'text-red-400');
+            if (type === 'success') statusMessage.classList.add('text-green-400');
+            else if (type === 'error') statusMessage.classList.add('text-red-400');
+            else statusMessage.classList.add('text-yellow-400'); // Default/warning
         }
 
     </script>
 </body>
-</html>
 
+</html>
