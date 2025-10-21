@@ -8,20 +8,21 @@
     <!-- A-Frame and MindAR libraries -->
     <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
-    <!-- three.js for the editor -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    
+    <!-- Import map for three.js modules -->
     <script type="importmap">
         {
             "imports": {
-                "three": "https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.js"
+                "three": "https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.js",
+                "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.128.0/examples/jsm/"
             }
         }
     </script>
 </head>
-<body class="bg-gray-900 text-white font-sans overflow-hidden">
+<body class="bg-gray-900 text-white font-sans">
 
     <!-- Main Container -->
-    <div id="main-container" class="w-full h-screen flex flex-col md:flex-row">
+    <div id="main-container" class="w-full min-h-screen flex flex-col md:flex-row">
 
         <!-- Editor UI Panel -->
         <div id="editor-panel" class="w-full md:w-96 bg-gray-800 p-4 overflow-y-auto flex-shrink-0">
@@ -86,7 +87,7 @@
         </div>
 
         <!-- 3D Editor Canvas -->
-        <div id="editor-canvas-container" class="flex-grow bg-gray-900 relative">
+        <div id="editor-canvas-container" class="flex-grow bg-gray-900 relative h-96 md:h-auto">
              <div id="editor-placeholder" class="absolute inset-0 flex items-center justify-center text-gray-500">
                 <p>Upload files to begin editing</p>
             </div>
@@ -98,11 +99,11 @@
     <div id="ar-container" class="w-screen h-screen hidden fixed top-0 left-0 z-50"></div>
     <button id="exit-ar-btn" class="hidden fixed bottom-5 left-1/2 -translate-x-1/2 z-[10000] bg-red-600 hover:bg-red-500 text-white font-bold py-3 px-6 rounded-full shadow-lg transition-colors">Exit AR</button>
 
-
     <script type="module">
-        // Import GLTFLoader and OrbitControls
-        import { GLTFLoader } from 'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/jsm/loaders/GLTFLoader.js';
-        import { OrbitControls } from 'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/jsm/controls/OrbitControls.js';
+        // Import THREE and modules
+        import * as THREE from 'three';
+        import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
         // DOM Elements
         const editorPanel = document.getElementById('editor-panel');
@@ -372,3 +373,5 @@
     </script>
 </body>
 </html>
+
+
