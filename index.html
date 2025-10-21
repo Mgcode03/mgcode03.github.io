@@ -328,6 +328,9 @@
 
             // Create A-Frame scene dynamically
             const sceneEl = document.createElement('a-scene');
+            // Explicitly set the scene's style to fill its container
+            sceneEl.style.width = '100%';
+            sceneEl.style.height = '100%';
             // Add embedded attribute for better layout on mobile
             sceneEl.setAttribute('embedded', '');
             sceneEl.setAttribute('mindar-image', `imageTargetSrc: ${mindFileUrl}; autoStart: true; uiLoading: no; uiError: no; uiScanning: no;`);
