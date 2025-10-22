@@ -1,403 +1,351 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>MindAR Image Target Scene Editor</title>
+    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <!-- Tailwind CSS for styling -->
+    <title>World AR - Web Edition</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- A-Frame and MindAR libraries -->
-    <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
-    
-    <!-- Import map for three.js modules -->
-    <script type="importmap">
-        {
-            "imports": {
-                "three": "https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.js",
-                "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.128.0/examples/jsm/"
-            }
-        }
-    </script>
     <style>
-        /* This style block is crucial for fixing the Android fullscreen issue. */
-        .ar-mode {
-            overflow: hidden !important;
-            height: 100vh !important;
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: 'Inter', sans-serif;
+            background-color: #000;
         }
-        #ar-container, #ar-container a-scene, #ar-container .a-canvas {
-            width: 100% !important;
-            height: 100% !important;
+        #camera-view {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            z-index: -1;
         }
+        .overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            align-items: center;
+            box-sizing: border-box;
+            pointer-events: none; /* Let clicks pass through */
+        }
+        .header, .footer {
+            width: 100%;
+            padding: 2rem 1.5rem;
+            pointer-events: auto; /* Re-enable pointer events for UI elements */
+        }
+        .header-content, .footer-content {
+            max-width: 400px;
+            margin: 0 auto;
+            background-color: rgba(0,0,0,0.6);
+            padding: 1rem 1.5rem;
+            border-radius: 1rem;
+            text-align: center;
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        /* --- Plane Visualizer --- */
+        #plane-visualizer {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 80vmin;
+            height: 60vmin;
+            transform-style: preserve-3d;
+            transform: translate(-50%, -40%) rotateX(75deg);
+            transition: opacity 0.5s ease;
+            opacity: 0;
+            pointer-events: none;
+        }
+        .grid {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background-image:
+                linear-gradient(rgba(52, 152, 219, 0.5) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(52, 152, 219, 0.5) 1px, transparent 1px);
+            background-size: 5vmin 5vmin;
+            border: 1px solid rgba(52, 152, 219, 0.7);
+            border-radius: 4px;
+        }
+
+        /* --- CUBE --- */
+        .cube-container {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            width: 80px;
+            height: 80px;
+            transform-style: preserve-3d;
+            transform: translate(-50%, -50%);
+            cursor: grab;
+            pointer-events: auto; /* Make cube interactive */
+        }
+        .cube-container.selected .face{
+             border-color: #3498db;
+             box-shadow: 0 0 20px rgba(52, 152, 219, 0.8);
+        }
+        .cube {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            transform-style: preserve-3d;
+            transform: rotateX(60deg) rotateY(0deg) rotateZ(0deg); /* Initial nice view */
+        }
+        .face {
+            position: absolute;
+            width: 80px;
+            height: 80px;
+            border: 2px solid #2c3e50;
+            background-color: rgba(236, 240, 241, 0.8);
+        }
+        .front  { transform: rotateY(  0deg) translateZ(40px); background-color: rgba(231, 76, 60, 0.85); }
+        .back   { transform: rotateY(180deg) translateZ(40px); background-color: rgba(241, 196, 15, 0.85); }
+        .right  { transform: rotateY( 90deg) translateZ(40px); background-color: rgba(46, 204, 113, 0.85); }
+        .left   { transform: rotateY(-90deg) translateZ(40px); background-color: rgba(52, 152, 219, 0.85); }
+        .top    { transform: rotateX( 90deg) translateZ(40px); background-color: rgba(155, 89, 182, 0.85); }
+        .bottom { transform: rotateX(-90deg) translateZ(40px); background-color: rgba(26, 188, 156, 0.85); }
     </style>
 </head>
-<body class="bg-gray-900 text-white font-sans">
+<body class="bg-black text-white">
 
-    <!-- Main Container -->
-    <div id="main-container" class="w-full min-h-screen flex flex-col md:flex-row">
-
-        <!-- Editor UI Panel -->
-        <div id="editor-panel" class="w-full md:w-96 bg-gray-800 p-4 overflow-y-auto flex-shrink-0">
-            <h1 class="text-2xl font-bold mb-4 text-cyan-400">AR Scene Editor</h1>
-            
-            <!-- File Uploads -->
-            <div class="space-y-4 mb-6">
-                <div>
-                    <label for="target-image-input" class="block text-sm font-medium mb-1">1. Upload Target Image (for preview)</label>
-                    <input type="file" id="target-image-input" accept="image/png, image/jpeg" class="block w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-cyan-500 file:text-white hover:file:bg-cyan-600 transition-colors cursor-pointer"/>
-                </div>
-                <div>
-                    <label for="mind-file-input" class="block text-sm font-medium mb-1">2. Upload .mind File</label>
-                    <input type="file" id="mind-file-input" accept=".mind" class="block w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-cyan-500 file:text-white hover:file:bg-cyan-600 transition-colors cursor-pointer"/>
-                </div>
-                <div>
-                    <label for="model-input" class="block text-sm font-medium mb-1">3. Upload 3D Model (.glb)</label>
-                    <input type="file" id="model-input" accept=".glb" class="block w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-cyan-500 file:text-white hover:file:bg-cyan-600 transition-colors cursor-pointer"/>
-                </div>
-            </div>
-
-            <!-- Transformation Controls -->
-            <div id="controls" class="space-y-4 hidden">
-                <h2 class="text-lg font-semibold border-b border-gray-600 pb-2">Transform Controls</h2>
-                
-                <!-- Position -->
-                <div class="control-group">
-                    <h3 class="font-medium mb-1">Position</h3>
-                    <div class="grid grid-cols-2 gap-2 items-center">
-                        <label for="pos-x">X:</label><input type="range" id="pos-x" min="-2" max="2" step="0.01" value="0" class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer">
-                        <label for="pos-y">Y:</label><input type="range" id="pos-y" min="-2" max="2" step="0.01" value="0" class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer">
-                        <label for="pos-z">Z:</label><input type="range" id="pos-z" min="-2" max="2" step="0.01" value="0" class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer">
-                    </div>
-                </div>
-
-                <!-- Rotation -->
-                <div class="control-group">
-                    <h3 class="font-medium mb-1">Rotation</h3>
-                    <div class="grid grid-cols-2 gap-2 items-center">
-                        <label for="rot-x">X:</label><input type="range" id="rot-x" min="0" max="360" step="1" value="0" class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer">
-                        <label for="rot-y">Y:</label><input type="range" id="rot-y" min="0" max="360" step="1" value="0" class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer">
-                        <label for="rot-z">Z:</label><input type="range" id="rot-z" min="0" max="360" step="1" value="0" class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer">
-                    </div>
-                </div>
-
-                <!-- Scale -->
-                <div class="control-group">
-                    <h3 class="font-medium mb-1">Scale</h3>
-                     <div class="grid grid-cols-2 gap-2 items-center">
-                        <label for="scale">All Axes:</label><input type="range" id="scale" min="0.01" max="3" step="0.01" value="1" class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer">
-                    </div>
-                </div>
-                 <button id="reset-btn" class="w-full bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded-md transition-colors">Reset Transforms</button>
-            </div>
-
-            <!-- Action Buttons -->
-            <div class="mt-8">
-                 <button id="save-scene-btn" disabled class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-4 rounded-md transition-colors disabled:bg-gray-500 disabled:cursor-not-allowed">Save Scene</button>
-                 <button id="start-ar-btn" disabled class="w-full mt-2 bg-green-600 hover:bg-green-500 text-white font-bold py-2 px-4 rounded-md transition-colors disabled:bg-gray-500 disabled:cursor-not-allowed">Start AR</button>
-            </div>
-             <p id="status-message" class="text-center text-yellow-400 mt-4 text-sm"></p>
-        </div>
-
-        <!-- 3D Editor Canvas -->
-        <div id="editor-canvas-container" class="flex-grow bg-gray-900 relative h-96 md:h-auto">
-             <div id="editor-placeholder" class="absolute inset-0 flex items-center justify-center text-gray-500">
-                <p>Upload files to begin editing</p>
-            </div>
-        </div>
-
+    <video id="camera-view" autoplay playsinline></video>
+    
+    <div id="ar-space" class="w-full h-full absolute top-0 left-0">
+        <!-- Cubes will be added here -->
+    </div>
+    
+    <div id="plane-visualizer">
+        <div class="grid"></div>
     </div>
 
-    <!-- AR View container (initially hidden) -->
-    <div id="ar-container" class="w-screen h-screen hidden fixed top-0 left-0 z-50"></div>
-    <button id="exit-ar-btn" class="hidden fixed bottom-5 left-1/2 -translate-x-1/2 z-[10000] bg-red-600 hover:bg-red-500 text-white font-bold py-3 px-6 rounded-full shadow-lg transition-colors">Exit AR</button>
+    <div class="overlay">
+        <div class="header">
+            <div class="header-content">
+                <h1 class="text-xl font-bold">World AR (Web)</h1>
+                <p id="status-text" class="text-sm mt-1 text-gray-300">Requesting camera access...</p>
+            </div>
+        </div>
+        <div class="footer">
+            <div id="footer-content" class="footer-content hidden">
+                 <button id="remove-button" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-4 rounded-lg transition-colors">
+                    Remove Selected Cube
+                </button>
+            </div>
+        </div>
+    </div>
 
-    <script type="module">
-        // Import THREE and modules
-        import * as THREE from 'three';
-        import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    <script>
+        const video = document.getElementById('camera-view');
+        const arSpace = document.getElementById('ar-space');
+        const statusText = document.getElementById('status-text');
+        const planeVisualizer = document.getElementById('plane-visualizer');
+        const removeButton = document.getElementById('remove-button');
+        const footerContent = document.getElementById('footer-content');
 
-        // DOM Elements
-        const editorPanel = document.getElementById('editor-panel');
-        const editorCanvasContainer = document.getElementById('editor-canvas-container');
-        const editorPlaceholder = document.getElementById('editor-placeholder');
-        const controlsDiv = document.getElementById('controls');
-        const targetImageInput = document.getElementById('target-image-input');
-        const mindFileInput = document.getElementById('mind-file-input');
-        const modelInput = document.getElementById('model-input');
-        const saveSceneBtn = document.getElementById('save-scene-btn');
-        const startArBtn = document.getElementById('start-ar-btn');
-        const exitArBtn = document.getElementById('exit-ar-btn');
-        const arContainer = document.getElementById('ar-container');
-        const mainContainer = document.getElementById('main-container');
-        const statusMessage = document.getElementById('status-message');
-        const resetBtn = document.getElementById('reset-btn');
+        let isPlaneDetected = false;
+        let placedObjects = [];
+        let selectedObjectId = null;
 
-        // three.js Editor variables
-        let scene, camera, renderer, model, targetPlane, controls;
-        let animationFrameId;
-        
-        // Data URLs
-        let targetImageUrl, mindFileUrl, modelUrl;
-        
-        // Saved Scene configuration
-        let savedSceneConfig = null;
+        // --- Camera Setup ---
+        async function setupCamera() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: 'environment' }
+                });
+                video.srcObject = stream;
+                statusText.textContent = 'Scanning for a surface...';
+                
+                // Simulate plane detection
+                setTimeout(() => {
+                    isPlaneDetected = true;
+                    if (placedObjects.length === 0) {
+                        planeVisualizer.style.opacity = '1';
+                    }
+                    statusText.textContent = 'Surface detected. Tap to place a cube.';
+                }, 2000);
 
-        // Initialize the three.js editor
-        const initEditor = () => {
-            // Scene
-            scene = new THREE.Scene();
-            scene.background = new THREE.Color(0x111827); // bg-gray-900
-
-            // Camera
-            camera = new THREE.PerspectiveCamera(75, editorCanvasContainer.clientWidth / editorCanvasContainer.clientHeight, 0.1, 1000);
-            camera.position.z = 2;
-
-            // Renderer
-            renderer = new THREE.WebGLRenderer({ antialias: true });
-            renderer.setSize(editorCanvasContainer.clientWidth, editorCanvasContainer.clientHeight);
-            renderer.setPixelRatio(window.devicePixelRatio);
-            editorCanvasContainer.appendChild(renderer.domElement);
-            editorPlaceholder.style.display = 'none';
-            
-            // Lighting
-            const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
-            scene.add(ambientLight);
-            const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
-            directionalLight.position.set(5, 10, 7.5);
-            scene.add(directionalLight);
-
-            // Controls
-            controls = new OrbitControls(camera, renderer.domElement);
-            controls.enableDamping = true;
-
-            // Start animation loop
-            animateEditor();
-        };
-        
-        const animateEditor = () => {
-            animationFrameId = requestAnimationFrame(animateEditor);
-            controls.update();
-            renderer.render(scene, camera);
-        };
-        
-        // Handle window resize
-        window.addEventListener('resize', () => {
-            if (renderer) {
-                const width = editorCanvasContainer.clientWidth;
-                const height = editorCanvasContainer.clientHeight;
-                camera.aspect = width / height;
-                camera.updateProjectionMatrix();
-                renderer.setSize(width, height);
+            } catch (err) {
+                console.error("Error accessing camera: ", err);
+                statusText.textContent = 'Camera access denied. Please enable camera permissions.';
             }
-        });
-        
-        // Load target image into editor
-        targetImageInput.addEventListener('change', (event) => {
-            const file = event.target.files[0];
-            if (!file) return;
-
-            targetImageUrl = URL.createObjectURL(file);
-            
-            if (!scene) initEditor();
-
-            // Remove old plane if it exists
-            if (targetPlane) scene.remove(targetPlane);
-
-            const textureLoader = new THREE.TextureLoader();
-            textureLoader.load(targetImageUrl, (texture) => {
-                const geometry = new THREE.PlaneGeometry(1, texture.image.height / texture.image.width);
-                const material = new THREE.MeshBasicMaterial({ map: texture });
-                targetPlane = new THREE.Mesh(geometry, material);
-                scene.add(targetPlane);
-            });
-            updateButtonStates();
-        });
-
-        // Handle mind file upload
-        mindFileInput.addEventListener('change', (event) => {
-            const file = event.target.files[0];
-            if (!file) return;
-            mindFileUrl = URL.createObjectURL(file);
-            updateButtonStates();
-        });
-
-        // Load 3D model into editor
-        modelInput.addEventListener('change', (event) => {
-            const file = event.target.files[0];
-            if (!file) return;
-            
-            modelUrl = URL.createObjectURL(file);
-
-            if (!scene) initEditor();
-            
-            const loader = new GLTFLoader();
-            loader.load(modelUrl, (gltf) => {
-                // Remove old model
-                if (model) scene.remove(model);
-                
-                model = gltf.scene;
-                
-                // Center and scale model
-                const box = new THREE.Box3().setFromObject(model);
-                const center = box.getCenter(new THREE.Vector3());
-                const size = box.getSize(new THREE.Vector3());
-                const maxDim = Math.max(size.x, size.y, size.z);
-                const scale = 1.0 / maxDim;
-                
-                model.position.sub(center.multiplyScalar(scale));
-                model.scale.set(scale, scale, scale);
-                
-                scene.add(model);
-                controlsDiv.style.display = 'block';
-                resetTransforms();
-            }, undefined, (error) => {
-                console.error(error);
-                updateStatus('Error loading model.', 'error');
-            });
-            updateButtonStates();
-        });
-        
-        // Transformation Controls Logic
-        const transformInputs = ['pos-x', 'pos-y', 'pos-z', 'rot-x', 'rot-y', 'rot-z', 'scale'];
-        transformInputs.forEach(id => {
-            document.getElementById(id).addEventListener('input', () => {
-                if (!model) return;
-                const posX = document.getElementById('pos-x').value;
-                const posY = document.getElementById('pos-y').value;
-                const posZ = document.getElementById('pos-z').value;
-                const rotX = document.getElementById('rot-x').value;
-                const rotY = document.getElementById('rot-y').value;
-                const rotZ = document.getElementById('rot-z').value;
-                const scale = document.getElementById('scale').value;
-
-                model.position.set(posX, posY, posZ);
-                model.rotation.set(
-                    THREE.MathUtils.degToRad(rotX),
-                    THREE.MathUtils.degToRad(rotY),
-                    THREE.MathUtils.degToRad(rotZ)
-                );
-                model.scale.set(scale, scale, scale);
-                savedSceneConfig = null; // Invalidate saved scene on change
-                startArBtn.disabled = true;
-                updateStatus('Scene changed. Please save before starting AR.', 'warning');
-            });
-        });
-
-        // Reset Transforms
-        const resetTransforms = () => {
-             document.getElementById('pos-x').value = 0;
-             document.getElementById('pos-y').value = 0;
-             document.getElementById('pos-z').value = 0;
-             document.getElementById('rot-x').value = 0;
-             document.getElementById('rot-y').value = 0;
-             document.getElementById('rot-z').value = 0;
-             document.getElementById('scale').value = 1;
-             // Trigger input event to apply changes
-             transformInputs.forEach(id => document.getElementById(id).dispatchEvent(new Event('input')));
         }
-        resetBtn.addEventListener('click', resetTransforms);
+        
+        // --- Object & Gesture Logic ---
+        function createCube(id) {
+            const cubeContainer = document.createElement('div');
+            cubeContainer.className = 'cube-container';
+            cubeContainer.id = `cube-${id}`;
+            cubeContainer.dataset.id = id;
 
-        // Save Scene
-        saveSceneBtn.addEventListener('click', () => {
-            savedSceneConfig = {
-                position: `${document.getElementById('pos-x').value} ${document.getElementById('pos-y').value} ${document.getElementById('pos-z').value}`,
-                rotation: `${document.getElementById('rot-x').value} ${document.getElementById('rot-y').value} ${document.getElementById('rot-z').value}`,
-                scale: `${document.getElementById('scale').value} ${document.getElementById('scale').value} ${document.getElementById('scale').value}`
+            const cube = document.createElement('div');
+            cube.className = 'cube';
+            
+            const faces = ['front', 'back', 'right', 'left', 'top', 'bottom'];
+            faces.forEach(faceName => {
+                const face = document.createElement('div');
+                face.className = `face ${faceName}`;
+                cube.appendChild(face);
+            });
+            cubeContainer.appendChild(cube);
+            arSpace.appendChild(cubeContainer);
+
+            let state = {
+                id,
+                x: 0, y: 0,
+                scale: 1,
+                rotation: 0
             };
-            startArBtn.disabled = false;
-            updateStatus('Scene saved successfully!', 'success');
-        });
-
-        // Start AR
-        startArBtn.addEventListener('click', () => {
-            if (!savedSceneConfig) {
-                updateStatus('Please save the scene first!', 'error');
-                return;
-            }
-
-            // Add class to body to lock scrolling
-            document.body.classList.add('ar-mode');
-
-            // Create A-Frame scene dynamically
-            const sceneEl = document.createElement('a-scene');
-
-            // Do NOT use the 'embedded' attribute for mobile AR, as it can cause layout issues.
-            sceneEl.setAttribute('mindar-image', `imageTargetSrc: ${mindFileUrl}; autoStart: true; uiLoading: no; uiError: no; uiScanning: no;`);
-            sceneEl.setAttribute('color-space', 'sRGB');
-            // Optimize renderer for mobile performance
-            sceneEl.setAttribute('renderer', 'colorManagement: true; logDepth: false; precision: medium;');
-            sceneEl.setAttribute('vr-mode-ui', 'enabled: false');
-            sceneEl.setAttribute('device-orientation-permission-ui', 'enabled: false');
             
-            const cameraEl = document.createElement('a-camera');
-            cameraEl.setAttribute('position', '0 0 0');
-            cameraEl.setAttribute('look-controls', 'enabled: false');
+            addGestureControls(cubeContainer, state);
             
-            const targetEntity = document.createElement('a-entity');
-            targetEntity.setAttribute('mindar-image-target', 'targetIndex: 0');
-
-            const modelEntity = document.createElement('a-gltf-model');
-            modelEntity.setAttribute('src', modelUrl);
-            modelEntity.setAttribute('position', savedSceneConfig.position);
-            modelEntity.setAttribute('rotation', savedSceneConfig.rotation);
-            modelEntity.setAttribute('scale', savedSceneConfig.scale);
-            modelEntity.setAttribute('animation-mixer', '');
-
-            targetEntity.appendChild(modelEntity);
-            sceneEl.appendChild(cameraEl);
-            sceneEl.appendChild(targetEntity);
-            
-            arContainer.innerHTML = ''; // Clear previous scene
-            arContainer.appendChild(sceneEl);
-
-            // Switch views
-            mainContainer.style.display = 'none';
-            arContainer.style.display = 'block';
-            exitArBtn.style.display = 'block';
-
-            // Use a more reliable event to trigger resize
-            sceneEl.addEventListener('loaded', () => {
-                 setTimeout(() => {
-                    sceneEl.resize();
-                }, 10); // A minimal timeout can still help ensure the DOM is ready
-            });
-        });
-
-        // Exit AR
-        exitArBtn.addEventListener('click', () => {
-            // Remove the body class to restore normal layout
-            document.body.classList.remove('ar-mode');
-
-            mainContainer.style.display = 'flex';
-            arContainer.style.display = 'none';
-            exitArBtn.style.display = 'none';
-            // Stop MindAR and clean up
-            const sceneEl = arContainer.querySelector('a-scene');
-            if (sceneEl && sceneEl.systems['mindar-image-system']) {
-                 sceneEl.systems['mindar-image-system'].stop();
-            }
-            arContainer.innerHTML = '';
-        });
+            return { id, element: cubeContainer, state };
+        }
         
-        // Update button states based on file uploads
-        const updateButtonStates = () => {
-            const allFilesReady = targetImageUrl && mindFileUrl && modelUrl;
-            saveSceneBtn.disabled = !allFilesReady;
-             if(allFilesReady && !savedSceneConfig) {
-                updateStatus('All files loaded. Please position your model and save.', 'info');
-             }
-        };
+        function addGestureControls(element, state) {
+            let initialPinchDistance = 0;
+            let longPressTimeout;
 
-        // Update status message
-        const updateStatus = (message, type = 'info') => {
-             statusMessage.textContent = message;
-             statusMessage.classList.remove('text-yellow-400', 'text-green-400', 'text-red-400');
-             if (type === 'success') statusMessage.classList.add('text-green-400');
-             else if (type === 'error') statusMessage.classList.add('text-red-400');
-             else statusMessage.classList.add('text-yellow-400'); // Default/warning
+            // Variables for drag
+            let isDragging = false;
+            let startX, startY;
+
+            function getDistance(touches) {
+                return Math.hypot(
+                    touches[0].pageX - touches[1].pageX,
+                    touches[0].pageY - touches[1].pageY
+                );
+            }
+
+            function updateTransform() {
+                element.style.transform = `translate(-50%, -50%) translate(${state.x}px, ${state.y}px)`;
+                const cube = element.querySelector('.cube');
+                cube.style.transform = `rotateX(60deg) rotateZ(${state.rotation}rad) scale(${state.scale})`;
+            }
+
+            element.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                selectObject(state.id);
+
+                if (e.touches.length === 1) {
+                    isDragging = true;
+                    startX = e.touches[0].clientX - state.x;
+                    startY = e.touches[0].clientY - state.y;
+                    element.style.cursor = 'grabbing';
+                } else if (e.touches.length === 2) {
+                    isDragging = false;
+                    initialPinchDistance = getDistance(e.touches);
+                }
+            });
+
+            element.addEventListener('touchmove', (e) => {
+                e.preventDefault();
+                if (isDragging && e.touches.length === 1) {
+                    state.x = e.touches[0].clientX - startX;
+                    state.y = e.touches[0].clientY - startY;
+                } else if (e.touches.length === 2) {
+                    // Pinch to scale
+                    const newDist = getDistance(e.touches);
+                    state.scale = (state.scale * (newDist / initialPinchDistance));
+                    initialPinchDistance = newDist;
+
+                    // Two finger slide to rotate
+                    const angle = Math.atan2(
+                        e.touches[1].pageY - e.touches[0].pageY,
+                        e.touches[1].pageX - e.touches[0].pageX
+                    );
+                    state.rotation = angle;
+                }
+                updateTransform();
+            });
+
+            element.addEventListener('touchend', (e) => {
+                e.preventDefault();
+                isDragging = false;
+                element.style.cursor = 'grab';
+            });
+            
+             // Mouse events for desktop testing
+            element.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                selectObject(state.id);
+                isDragging = true;
+                startX = e.clientX - state.x;
+                startY = e.clientY - state.y;
+                element.style.cursor = 'grabbing';
+            });
+            
+             window.addEventListener('mousemove', (e) => {
+                if (!isDragging) return;
+                e.preventDefault();
+                state.x = e.clientX - startX;
+                state.y = e.clientY - startY;
+                updateTransform();
+            });
+
+            window.addEventListener('mouseup', (e) => {
+                if (isDragging) {
+                    isDragging = false;
+                    element.style.cursor = 'grab';
+                }
+            });
+        }
+        
+        function selectObject(id) {
+            if (selectedObjectId === id) return;
+            
+            // Deselect previous
+            if (selectedObjectId) {
+                const oldSelected = document.getElementById(`cube-${selectedObjectId}`);
+                if(oldSelected) oldSelected.classList.remove('selected');
+            }
+            
+            // Select new
+            selectedObjectId = id;
+            const newSelected = document.getElementById(`cube-${id}`);
+            if(newSelected) newSelected.classList.add('selected');
+
+            footerContent.classList.remove('hidden');
         }
 
+        function removeSelectedObject() {
+            if (!selectedObjectId) return;
+
+            const objectToRemove = placedObjects.find(obj => obj.id === selectedObjectId);
+            if (objectToRemove) {
+                arSpace.removeChild(objectToRemove.element);
+                placedObjects = placedObjects.filter(obj => obj.id !== selectedObjectId);
+                selectedObjectId = null;
+                footerContent.classList.add('hidden');
+            }
+        }
+
+        // --- Event Listeners ---
+        arSpace.addEventListener('click', (e) => {
+            // Only place if the direct target is ar-space (not a cube)
+            if (e.target === arSpace && isPlaneDetected) {
+                if (planeVisualizer.style.opacity === '1') {
+                    planeVisualizer.style.opacity = '0';
+                }
+                const newId = Date.now();
+                const newObject = createCube(newId);
+                placedObjects.push(newObject);
+                selectObject(newId);
+            }
+        });
+        
+        removeButton.addEventListener('click', removeSelectedObject);
+
+        // --- Start ---
+        window.addEventListener('load', setupCamera);
     </script>
+
 </body>
 </html>
-
