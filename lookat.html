@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Model</title>
+    <style>
+        /* This removes all borders and scrollbars */
+        body,
+        html {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+            background: transparent;
+            /* This is the transparent background */
+        }
+
+        canvas {
+            display: block;
+        }
+    </style>
+</head>
+
+<body>
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://unpkg.com/three@0.166.1/build/three.module.js",
+            "three/addons/": "https://unpkg.com/three@0.166.1/examples/jsm/"
+        }
+    }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+        // --- 1. CONFIGURATION: EDIT THESE VALUES ---
+
+        // IMPORTANT: Put your .glb file online and paste the URL here.
+        const MODEL_URL = "https://mgcode03.github.io/Gkmodel.glb"; // <-- Replace with your model URL
+
+        // --- Bone Names (Check your Avaturn model!) ---
+        const HEAD_BONE_NAME = "Head";      // Avaturn default
+        const SPINE_BONE_NAME = "Spine2";   // Avaturn default
+
+        // --- Look At Strength ---
+        const MAX_YAW_ANGLE = 30;    // Max degrees left/right
+        const MAX_PITCH_ANGLE = 20;  // Max degrees up/down
+        const SMOOTHING = 0.05;      // How fast the head follows (0.01 = slow, 0.1 = fast)
+
+        // --- Spine Influence (how much the spine moves with the head) ---
+        const SPINE_YAW_INFLUENCE = 0.3;   // 30% of left/right
+        const SPINE_PITCH_INFLUENCE = 0.5; // 50% of up/down
+
+        // --- Model Position & Scale ---
+        const MODEL_SCALE = 2.0;
+        const MODEL_POS_Y = -1.7; // Move model down to ground it (adjust as needed)
+        // ---------------------------------------------
+
+        let scene, camera, renderer, headBone, spineBone, mixer, clock;
+        let mousePos = new THREE.Vector2();
+
+        // 1. Setup the Scene
+        scene = new THREE.Scene();
+        clock = new THREE.Clock(); // For animations
+        camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(0, 1.4, 2.5); // x, y, z position of the camera
+
+        renderer = new THREE.WebGLRenderer({
+            antialias: true,
+            alpha: true // This allows for a transparent background
+        });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        document.body.appendChild(renderer.domElement);
+
+        // 2. Add Lights
+        const ambientLight = new THREE.AmbientLight(0xffffff, 1.5);
+        scene.add(ambientLight);
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 1.5);
+        directionalLight.position.set(5, 5, 5);
+        scene.add(directionalLight);
+
+        // 3. Load the Model
+        const loader = new GLTFLoader();
+        loader.load(MODEL_URL, (gltf) => {
+            gltf.scene.scale.set(MODEL_SCALE, MODEL_SCALE, MODEL_SCALE);
+            gltf.scene.position.set(0, MODEL_POS_Y, 0);
+            scene.add(gltf.scene);
+
+            // --- Find the bones ---
+            headBone = gltf.scene.getObjectByName(HEAD_BONE_NAME);
+            spineBone = gltf.scene.getObjectByName(SPINE_BONE_NAME);
+
+            if (!headBone) {
+                console.error(`Error: Could not find bone named "${HEAD_BONE_NAME}"`);
+            }
+            if (!spineBone) {
+                console.warn(`Warning: Could not find bone named "${SPINE_BONE_NAME}"`);
+            }
+
+            // --- Setup Animation ---
+            if (gltf.animations.length > 0) {
+                mixer = new THREE.AnimationMixer(gltf.scene);
+                // Play the *first* animation found in the file
+                const action = mixer.clipAction(gltf.animations[0]);
+                action.play();
+            } else {
+                console.warn("Model has no animations to play.");
+            }
+
+        }, undefined, (error) => {
+            console.error(error);
+        });
+
+        // 4. Track Mouse Movement
+        function onMouseMove(event) {
+            // Convert mouse position to normalized device coordinates (-1 to +1)
+            mousePos.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mousePos.y = -(event.clientY / window.innerHeight) * 2 + 1;
+        }
+        window.addEventListener('mousemove', onMouseMove);
+
+        // 5. The Render Loop (runs every frame)
+        function animate() {
+            requestAnimationFrame(animate);
+            const delta = clock.getDelta(); // Get time since last frame
+
+            // Calculate target rotation in radians
+            const targetYaw = mousePos.x * THREE.MathUtils.degToRad(MAX_YAW_ANGLE);
+
+            // **FIXED:** Flipped the sign. 
+            // Positive mouse Y (top) now equals positive pitch (look up).
+            const targetPitch = -mousePos.y * THREE.MathUtils.degToRad(MAX_PITCH_ANGLE);
+
+            // --- Apply rotations with smoothing (Lerp) ---
+            if (headBone) {
+                headBone.rotation.y = THREE.MathUtils.lerp(headBone.rotation.y, targetYaw, SMOOTHING);
+                headBone.rotation.x = THREE.MathUtils.lerp(headBone.rotation.x, targetPitch, SMOOTHING);
+            }
+
+            // **NEW:** Apply influenced rotation to the spine
+            if (spineBone) {
+                spineBone.rotation.y = THREE.MathUtils.lerp(spineBone.rotation.y, targetYaw * SPINE_YAW_INFLUENCE, SMOOTHING);
+                spineBone.rotation.x = THREE.MathUtils.lerp(spineBone.rotation.x, targetPitch * SPINE_PITCH_INFLUENCE, SMOOTHING);
+            }
+
+            // **NEW:** Update the animation mixer
+            if (mixer) {
+                mixer.update(delta);
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        // Handle window resizing
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+        window.addEventListener('resize', onWindowResize);
+
+        // Start the loop!
+        animate();
+    </script>
+</body>
+
+</html>
