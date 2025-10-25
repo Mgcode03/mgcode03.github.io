@@ -37,11 +37,12 @@
     <script type="module">
         import * as THREE from 'three';
         import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+        import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 
         // --- 1. CONFIGURATION: EDIT THESE VALUES ---
 
         // IMPORTANT: Put your .glb file online and paste the URL here.
-        const MODEL_URL = "Gkmodel.glb";
+        const MODEL_URL = "Gkmodel4.glb";
 
         // --- Bone Names (Check your Avaturn model!) ---
         const HEAD_BONE_NAME = "Head";      // Avaturn default
@@ -49,7 +50,7 @@
 
         // --- Look At Strength ---
         const MAX_YAW_ANGLE = 45;    // Max degrees left/right
-        const MAX_PITCH_ANGLE = 20;  // Max degrees up/down
+        const MAX_PITCH_ANGLE = 27;  // Max degrees up/down
         const SMOOTHING = 0.05;      // How fast the head follows (0.01 = slow, 0.1 = fast)
 
         // --- Spine Influence (how much the spine moves with the head) ---
@@ -58,7 +59,7 @@
 
         // --- Model Position & Scale ---
         const MODEL_SCALE = 1.8;
-        const MODEL_POS_Y = -1.5; // Move model down to ground it (adjust as needed)
+        const MODEL_POS_Y = -1.3; // Move model down to ground it (adjust as needed)
 
         // --- NEW: Camera Intro Transition ---
         const CAMERA_TRANSITION_DURATION = 8; // Duration in seconds
@@ -107,7 +108,12 @@
         scene.add(directionalLight);
 
         // 3. Load the Model
+        // 3. Load the Model
+        const dracoLoader = new DRACOLoader();
+        dracoLoader.setDecoderPath('https://unpkg.com/three@0.166.1/examples/jsm/libs/draco/gltf/');
+
         const loader = new GLTFLoader();
+        loader.setDRACOLoader(dracoLoader); // <-- This is the magic line
         loader.load(MODEL_URL, (gltf) => {
             gltf.scene.scale.set(MODEL_SCALE, MODEL_SCALE, MODEL_SCALE);
             gltf.scene.position.set(0, MODEL_POS_Y, 0);
@@ -199,6 +205,3 @@
 </body>
 
 </html>
-
-
-
